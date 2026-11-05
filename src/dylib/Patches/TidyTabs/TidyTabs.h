@@ -48,7 +48,13 @@ NSScrollView *DPTidyListScroll(NSView *list);
 NSRect DPTidyHoverZone(NSView *list);
 
 void DPTidyTabsNow(NSWindow *window);  // Action.m
-NSString *DPTidyUnavailableReason(void);  // Model.swift: why Apple Intelligence can't tidy now, or nil.
+
+// Provider.m: the model chosen on the Tidy Tabs page, Apple Intelligence or Claude through Claude Code.
+NSMenu *DPTidyModels(void);
+NSString *DPTidyUnavailableReason(void);  // Why the chosen model can't tidy now, or nil.
+// `tabs` holds dictionaries with "title" and "address". `done` gets, on the main queue, groups of 1-based tab numbers
+// with two or more in each, or an error message.
+void DPTidyAsk(NSArray *tabs, void (^done)(NSArray *groups, NSString *error));
 
 // Tabs.m: which tabs a tidy looks at.
 NSDictionary<NSString *, NSString *> *DPTidyLooseTabs(NSWindow *window);  // URL to title, below the divider.

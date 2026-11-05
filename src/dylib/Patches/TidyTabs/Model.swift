@@ -1,5 +1,5 @@
 // Asks Apple's on-device model (FoundationModels, macOS 26+) which tabs belong together. Dia names the groups itself
-// once they exist, so the model only clusters. Objective-C calls DPTidyAskModel; FoundationModels is weak-linked, so
+// once they exist, so the model only clusters. Provider.m calls DPTidyAskApple; FoundationModels is weak-linked, so
 // the dylib still loads on older macOS and answers with an error.
 //
 // One call. Every tab gets an answer field of its own, labelled with the tab, so the model can't mix tabs up. In it the
@@ -141,9 +141,9 @@ private func DPTidyIneligibleReason() -> String? {
 }
 #endif
 
-/// Why the model can't be used now, or nil when it can. The broom's tooltip shows it.
-@_cdecl("DPTidyUnavailableReason")
-public func DPTidyUnavailableReason() -> NSString? {
+/// Why Apple's model can't be used now, or nil when it can. The broom's hint shows it.
+@_cdecl("DPTidyAppleUnavailableReason")
+public func DPTidyAppleUnavailableReason() -> NSString? {
     #if canImport(FoundationModels)
     guard #available(macOS 26, *) else { return "Tidy Tabs needs macOS 26 or later." }
     return DPTidyUnavailable(SystemLanguageModel.default.availability) as NSString?
@@ -154,12 +154,12 @@ public func DPTidyUnavailableReason() -> NSString? {
 
 /// `tabs` holds dictionaries with "title" and "address" (host and path, no query). `done` gets an array of groups, each an array of 1-based tab
 /// numbers with two or more in it, or an error message. It's called on the main queue.
-@_cdecl("DPTidyAskModel")
-public func DPTidyAskModel(_ tabs: NSArray, _ done: @escaping @convention(block) (NSArray?, NSString?) -> Void) {
+@_cdecl("DPTidyAskApple")
+public func DPTidyAskApple(_ tabs: NSArray, _ done: @escaping @convention(block) (NSArray?, NSString?) -> Void) {
     func finish(_ groups: NSArray?, _ error: String?) {
         DispatchQueue.main.async { done(groups, error as NSString?) }
     }
-    if let reason = DPTidyUnavailableReason() { return finish(nil, reason as String) }
+    if let reason = DPTidyAppleUnavailableReason() { return finish(nil, reason as String) }
     #if canImport(FoundationModels)
     guard #available(macOS 26, *) else { return }
     let lines = tabs.map { tab -> String in

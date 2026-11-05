@@ -65,6 +65,8 @@ rm -rf /tmp/DiaTweaks && git clone --depth 1 https://github.com/JaceThings/DiaTw
 
 Yes. It's built on your Mac from this code. It only changes how Dia looks, and never reads your pages, history or passwords.
 
+The one thing it can send anywhere is opt-in: if you pick Claude for **Tidy Tabs**, the titles and addresses of the tabs it tidies go to Anthropic through your Claude Code login.
+
 </details>
 
 <details>
