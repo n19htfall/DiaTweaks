@@ -5,11 +5,19 @@
 static const NSUInteger DPTidyMaxTabs = 50;  // Keeps the prompt inside the on-device model's context.
 static BOOL DPTidyBusy;
 
-void DPTidyAskModel(NSArray *tabs, void (^done)(NSArray *groups, NSString *error));  // Model.swift
-
 // Nothing to show for a tidy that didn't happen, like one with no tabs that belong together; the broom just stops.
 static void DPTidyFail(NSString *message) {
     NSLog(@"DiaPatches: Tidy Tabs: %@", message);
+}
+
+// A model that couldn't answer, like Claude Code without a login, says why on the window's broom while it still shows.
+static void DPTidyReport(NSWindow *window, NSString *message) {
+    DPTidyFail(message);
+    for (DPTidyBrush *brush in DPTidyBrushes()) {
+        if (brush.window != window) continue;
+        DPSetHint(brush, message);
+        DPShowHint(brush);
+    }
 }
 
 static void DPTidySetBusy(BOOL busy) {
@@ -38,11 +46,11 @@ static NSArray<NSDictionary *> *DPTidyOps(NSArray *groups, NSArray<NSDictionary 
     return ops;
 }
 
-static void DPTidyGroup(id browser, id delegate, NSArray<NSDictionary *> *tabs) {
+static void DPTidyGroup(NSWindow *window, id browser, id delegate, NSArray<NSDictionary *> *tabs) {
     NSMutableArray *prompt = [NSMutableArray array];
     for (NSDictionary *tab in tabs) [prompt addObject:@{@"title": tab[@"title"], @"address": tab[@"address"]}];
-    DPTidyAskModel(prompt, ^(NSArray *groups, NSString *error) {
-        if (error) { DPTidySetBusy(NO); return DPTidyFail(error); }
+    DPTidyAsk(prompt, ^(NSArray *groups, NSString *error) {
+        if (error) { DPTidySetBusy(NO); return DPTidyReport(window, error); }
         NSArray *ops = DPTidyOps(groups, tabs);
         NSLog(@"DiaPatches: Tidy Tabs made %lu groups from %lu tabs", (unsigned long)ops.count, (unsigned long)tabs.count);
         if (!ops.count) { DPTidySetBusy(NO); return DPTidyFail(@"No tabs clearly belonged together."); }
@@ -60,10 +68,11 @@ static void DPTidyGroup(id browser, id delegate, NSArray<NSDictionary *> *tabs) 
 // The front window's tabs below the divider that aren't in a group yet, with their titles, go to the model.
 void DPTidyTabsNow(NSWindow *window) {
     if (DPTidyBusy) return;
+    window = window ?: NSApp.keyWindow;
     id browser = DPCommandBrowser();
     id delegate = browser ? DPGroupingDelegate(browser) : nil;
     if (![delegate respondsToSelector:@selector(browser:getAllTabGroupsWithCompletion:)]) return DPTidyFail(@"Dia’s tabs aren’t ready yet.");
-    NSDictionary<NSString *, NSString *> *loose = DPTidyLooseTabs(window ?: NSApp.keyWindow);
+    NSDictionary<NSString *, NSString *> *loose = DPTidyLooseTabs(window);
     NSMutableArray<NSDictionary *> *candidates = [NSMutableArray array];
     for (id contents in DPTrackedContents(browser)) {
         long long sid = DPSessionOf(contents);
@@ -85,7 +94,7 @@ void DPTidyTabsNow(NSWindow *window) {
             for (NSDictionary *tab in candidates)
                 if (![grouped containsObject:tab[@"session"]] && tabs.count < DPTidyMaxTabs) [tabs addObject:tab];
             if (tabs.count < 2) { DPTidySetBusy(NO); return DPTidyFail(@"There are no loose tabs to tidy."); }
-            DPTidyGroup(browser, delegate, tabs);
+            DPTidyGroup(window, browser, delegate, tabs);
         });
     });
 }
